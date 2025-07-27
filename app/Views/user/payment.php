@@ -8,7 +8,7 @@
 <button id="pay-button" class="btn btn-primary">Bayar Sekarang</button>
 <div id="result-json" class="mt-3"></div>
 
-<script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="< YOUR_CLIENT_KEY >"></script>
+<script src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="Mid-client-Nb09h8hRLKk78Wr0"></script>
 <script type="text/javascript">
   document.getElementById('pay-button').onclick = function () {
     snap.pay('<?= $snapToken ?>', {
