@@ -24,7 +24,7 @@ class Payment extends BaseController
         }
 
         // Setup Midtrans
-        \Midtrans\Config::$serverKey = 'Mid-server-bPaPrLKjtvYHU9tJR7K1umxV';
+        \Midtrans\Config::$serverKey = '';
         \Midtrans\Config::$isProduction = false;
         \Midtrans\Config::$isSanitized = true;
         \Midtrans\Config::$is3ds = true;
