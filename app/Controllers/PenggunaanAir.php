@@ -65,13 +65,21 @@ class PenggunaanAir extends BaseController
         $tagihanModel    = new TagihanModel();
 
         // Simpan data penggunaan
+        $meter_awal  = (int) $this->request->getPost('meter_awal');
+        $meter_akhir = (int) $this->request->getPost('meter_akhir');
+
+        if ($meter_awal > $meter_akhir) {
+            return redirect()->back()->withInput()->with('error', 'Meteran awal tidak boleh lebih besar dari meteran akhir.');
+        }
+
         $data = [
             'id_user'             => $id_user,
             'tanggal_pencatatan' => $this->request->getPost('tanggal_pencatatan'),
-            'meter_awal'         => $this->request->getPost('meter_awal'),
-            'meter_akhir'        => $this->request->getPost('meter_akhir'),
+            'meter_awal'         => $meter_awal,
+            'meter_akhir'        => $meter_akhir,
             'created_at'         => date('Y-m-d H:i:s'),
         ];
+
 
         $penggunaanModel->insert($data);
         $id_penggunaan = $penggunaanModel->getInsertID();
@@ -105,12 +113,20 @@ class PenggunaanAir extends BaseController
     public function update($id)
     {
         $model = new PenggunaanAirModel();
+        $meter_awal  = (int) $this->request->getPost('meter_awal');
+        $meter_akhir = (int) $this->request->getPost('meter_akhir');
+
+        if ($meter_awal > $meter_akhir) {
+            return redirect()->back()->withInput()->with('error', 'Meteran awal tidak boleh lebih besar dari meteran akhir.');
+        }
+
         $data = [
             'id_user'             => $this->request->getPost('id_user'),
             'tanggal_pencatatan' => $this->request->getPost('tanggal_pencatatan'),
-            'meter_awal'         => $this->request->getPost('meter_awal'),
-            'meter_akhir'        => $this->request->getPost('meter_akhir'),
+            'meter_awal'         => $meter_awal,
+            'meter_akhir'        => $meter_akhir,
         ];
+
 
         $model->update($id, $data);
         return redirect()->to('/penggunaan-air')->with('success', 'Data berhasil diperbarui.');
