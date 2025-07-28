@@ -82,7 +82,6 @@
 
 
       </table>
-      <?= $pager->links('riwayat', 'bootstrap_full') ?>
 
 
       <?php if ($pager): ?>

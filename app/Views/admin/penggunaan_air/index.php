@@ -54,6 +54,29 @@
             <td colspan="8" class="text-center">Belum ada data penggunaan air.</td>
           </tr>
         <?php endif; ?>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <?php if (session()->getFlashdata('sweet_error')) : ?>
+        <script>
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops!',
+                text: '<?= session()->getFlashdata('sweet_error') ?>',
+                showConfirmButton: true,
+                confirmButtonText: 'OK'
+            });
+        </script>
+        <?php endif; ?>
+        <?php if (session()->getFlashdata('success')) : ?>
+        <script>
+            Swal.fire({
+                icon: 'success',
+                title: 'Berhasil!',
+                text: '<?= session()->getFlashdata('success') ?>'
+            });
+        </script>
+        <?php endif; ?>
+
+
       </tbody>
     </table>
   </div>

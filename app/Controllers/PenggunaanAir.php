@@ -20,12 +20,10 @@ class PenggunaanAir extends BaseController
             ->orderBy('tanggal_pencatatan', 'DESC')
             ->findAll();
 
-        // Ambil tarif terbaru dari DB
         $tarifModel = new TarifAirModel();
         $tarif = $tarifModel->first();
         $hargaPerM3 = $tarif['harga_per_m3'] ?? 2500;
 
-        // Hitung total pemakaian & tagihan dinamis
         foreach ($data['penggunaan'] as &$row) {
             $row['total_pemakaian'] = $row['meter_akhir'] - $row['meter_awal'];
             $row['tagihan'] = $row['total_pemakaian'] * $hargaPerM3;
@@ -46,28 +44,21 @@ class PenggunaanAir extends BaseController
     {
         $no_pelanggan = $this->request->getPost('no_pelanggan');
         $pelangganModel = new PelangganModel();
+        $penggunaanModel = new PenggunaanAirModel();
+        $tagihanModel = new TagihanModel();
+        $tarifModel = new TarifAirModel();
 
-        // Cari data pelanggan
         $pelanggan = $pelangganModel->where('no_pelanggan', $no_pelanggan)->first();
-
         if (!$pelanggan) {
             return redirect()->back()->withInput()->with('error', 'Pelanggan tidak ditemukan.');
         }
 
         $id_user = $pelanggan['id_user'];
-
-        // Ambil tarif dari DB
-        $tarifModel = new TarifAirModel();
         $tarif = $tarifModel->first();
         $hargaPerM3 = $tarif['harga_per_m3'] ?? 2500;
 
-        $penggunaanModel = new PenggunaanAirModel();
-        $tagihanModel    = new TagihanModel();
-
-        // Simpan data penggunaan
-        $meter_awal  = (int) $this->request->getPost('meter_awal');
+        $meter_awal = (int) $this->request->getPost('meter_awal');
         $meter_akhir = (int) $this->request->getPost('meter_akhir');
-
         if ($meter_awal > $meter_akhir) {
             return redirect()->back()->withInput()->with('error', 'Meteran awal tidak boleh lebih besar dari meteran akhir.');
         }
@@ -80,15 +71,11 @@ class PenggunaanAir extends BaseController
             'created_at'         => date('Y-m-d H:i:s'),
         ];
 
-
         $penggunaanModel->insert($data);
         $id_penggunaan = $penggunaanModel->getInsertID();
+        $total_pemakaian = $meter_akhir - $meter_awal;
+        $total_tagihan = $total_pemakaian * $hargaPerM3;
 
-        // Hitung tagihan berdasarkan tarif dinamis
-        $total_pemakaian = $data['meter_akhir'] - $data['meter_awal'];
-        $total_tagihan   = $total_pemakaian * $hargaPerM3;
-
-        // Simpan ke tabel tagihan
         $tagihanModel->insert([
             'id_penggunaan' => $id_penggunaan,
             'total_tagihan' => $total_tagihan,
@@ -101,10 +88,23 @@ class PenggunaanAir extends BaseController
 
     public function edit($id)
     {
-        $model = new PenggunaanAirModel();
-        $pelangganModel = new PelangganModel();
+        $penggunaanModel = new PenggunaanAirModel();
+        $tagihanModel = new TagihanModel();
 
-        $data['penggunaan'] = $model->find($id);
+        $penggunaan = $penggunaanModel->find($id);
+        if (!$penggunaan) {
+            return redirect()->to('/penggunaan-air')->with('error', 'Data tidak ditemukan.');
+        }
+
+        $tagihan = $tagihanModel->where('id_penggunaan', $id)->first();
+        if ($tagihan && $tagihan['status'] === 'Lunas') {
+            // Set flashdata untuk SweetAlert
+            session()->setFlashdata('sweet_error', 'Data tidak bisa diedit karena tagihan sudah lunas.');
+            return redirect()->to('/penggunaan-air');
+        }
+
+        $pelangganModel = new PelangganModel();
+        $data['penggunaan'] = $penggunaan;
         $data['pelanggan'] = $pelangganModel->where('role', 'pelanggan')->findAll();
 
         return view('admin/penggunaan_air/edit', $data);
@@ -112,10 +112,17 @@ class PenggunaanAir extends BaseController
 
     public function update($id)
     {
-        $model = new PenggunaanAirModel();
-        $meter_awal  = (int) $this->request->getPost('meter_awal');
-        $meter_akhir = (int) $this->request->getPost('meter_akhir');
+        $penggunaanModel = new PenggunaanAirModel();
+        $tagihanModel = new TagihanModel();
 
+        $tagihan = $tagihanModel->where('id_penggunaan', $id)->first();
+        if ($tagihan && $tagihan['status'] === 'Lunas') {
+            session()->setFlashdata('sweet_error', 'Data tidak bisa diperbarui karena tagihan sudah lunas.');
+            return redirect()->to('/penggunaan-air');
+        }
+
+        $meter_awal = (int) $this->request->getPost('meter_awal');
+        $meter_akhir = (int) $this->request->getPost('meter_akhir');
         if ($meter_awal > $meter_akhir) {
             return redirect()->back()->withInput()->with('error', 'Meteran awal tidak boleh lebih besar dari meteran akhir.');
         }
@@ -127,8 +134,8 @@ class PenggunaanAir extends BaseController
             'meter_akhir'        => $meter_akhir,
         ];
 
+        $penggunaanModel->update($id, $data);
 
-        $model->update($id, $data);
         return redirect()->to('/penggunaan-air')->with('success', 'Data berhasil diperbarui.');
     }
 
@@ -137,15 +144,17 @@ class PenggunaanAir extends BaseController
         $penggunaanModel = new PenggunaanAirModel();
         $tagihanModel = new TagihanModel();
 
-        // Hapus tagihan terlebih dahulu
-        $tagihanModel->where('id_penggunaan', $id)->delete();
+        $tagihan = $tagihanModel->where('id_penggunaan', $id)->first();
+        if ($tagihan && $tagihan['status'] === 'Lunas') {
+            session()->setFlashdata('sweet_error', 'Data tidak bisa dihapus karena tagihan sudah lunas.');
+            return redirect()->to('/penggunaan-air');
+        }
 
-        // Hapus data penggunaan air
+        $tagihanModel->where('id_penggunaan', $id)->delete();
         $penggunaanModel->delete($id);
 
         return redirect()->to('/penggunaan-air')->with('success', 'Data berhasil dihapus.');
     }
-
 
     public function export()
     {
@@ -156,7 +165,6 @@ class PenggunaanAir extends BaseController
             ->orderBy('tanggal_pencatatan', 'DESC')
             ->findAll();
 
-        // Ambil tarif dari DB
         $tarifModel = new TarifAirModel();
         $tarif = $tarifModel->first();
         $hargaPerM3 = $tarif['harga_per_m3'] ?? 2500;
@@ -164,7 +172,6 @@ class PenggunaanAir extends BaseController
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Header
         $sheet->fromArray([
             ['No', 'No Pelanggan', 'Nama', 'Tanggal', 'Meter Awal', 'Meter Akhir', 'Total Pemakaian (m³)', 'Tagihan']
         ], NULL, 'A1');
@@ -174,7 +181,6 @@ class PenggunaanAir extends BaseController
             $total = $p['meter_akhir'] - $p['meter_awal'];
             $tagihan = $total * $hargaPerM3;
 
-            // Isi baris data
             $sheet->setCellValue("A$row", $i + 1);
             $sheet->setCellValue("B$row", $p['no_pelanggan']);
             $sheet->setCellValue("C$row", $p['nama_lengkap']);
@@ -183,14 +189,10 @@ class PenggunaanAir extends BaseController
             $sheet->setCellValue("F$row", $p['meter_akhir']);
             $sheet->setCellValue("G$row", $total);
             $sheet->setCellValue("H$row", $tagihan);
-
-            // Format kolom H sebagai Rupiah
             $sheet->getStyle("H{$row}")->getNumberFormat()->setFormatCode('"Rp"#,##0');
-
             $row++;
         }
 
-        // Auto-size semua kolom A-H
         foreach (range('A', 'H') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
@@ -204,5 +206,4 @@ class PenggunaanAir extends BaseController
         $writer->save('php://output');
         exit;
     }
-
 }
